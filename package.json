@@ -1,0 +1,20 @@
+{
+  "name": "tests",
+  "version": "1.0.0",
+  "description": "Unit tests",
+  "main": "test.js",
+  "type": "module",
+  "scripts": {
+    "test": "mocha --exit",
+    "emulators:start": "firebase emulators:start",
+    "emulators:stop": "lsof -t -i:5001 -i:5002 -i:8080 -i:9000 -i:9099 -i:9199 -i:9090 | xargs kill -9"  
+  },
+  "author": "Isaiah Tshabalala",
+  "license": "ISC",
+  "devDependencies": {
+    "mocha": "^10.2.0"
+  },
+  "dependencies": {
+    "@firebase/rules-unit-testing": "^3.0.1"
+  }
+}

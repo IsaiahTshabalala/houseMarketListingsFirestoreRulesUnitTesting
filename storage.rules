@@ -1,0 +1,47 @@
+// File: ./firestore.rules
+// Description:
+// Storage rules. For the house-market-listings application found here:
+// https://github.com/IsaiahTshabalala/houseMarketListings
+// -----------------------------------------------------------------------------
+// Date        Dev    Version   Description
+// 2023/12/02  ITA    1.00      Genesis.
+// -----------------------------------------------------------------------------
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    match /listings/{userId}/{fileOrFolder=**} {
+      allow create,
+            update: if isLoggedIn()
+                    && isFolderOwner(userId)
+                    && allowedFileType()
+                    && allowedFileSize(1);
+                    
+      allow read,
+            delete: if isLoggedIn()
+                    && isFolderOwner(userId);
+    }
+  }
+  
+  function allowedFileSize(allowedMB) {
+    // allowedMB * 1024 * 1024 converts MiB to Bytes
+    return request.resource.size <= allowedMB * 1024 * 1024;
+  }
+
+  function allowedFileType() {
+    let allowedFileTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    return [request.resource.contentType].hasOnly(allowedFileTypes);
+  }
+
+  function isLoggedIn() {
+    return request.auth.uid != null;
+  }
+
+  function isFolderOwner(userId){
+    return request.auth.uid == userId;
+  }
+}

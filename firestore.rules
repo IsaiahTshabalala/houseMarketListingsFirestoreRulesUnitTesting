@@ -1,0 +1,462 @@
+// File: ./firestore.rules
+// Description:
+// Firestore rules. For the house-market-listings application found here:
+// https://github.com/IsaiahTshabalala/houseMarketListings
+// -----------------------------------------------------------------------------
+// Date        Dev    Version   Description
+// 2023/10/02  ITA    1.00      Genesis.
+// -----------------------------------------------------------------------------
+
+rules_version = '2';
+
+service cloud.firestore {
+    match /databases/{database}/documents {
+        allow read, write: if false;
+
+        match /users/{userId} {
+            
+            allow create: if isLoggedIn()
+                              && request.auth.uid == userId // user document id matches authenticated user's unique id (uid)
+                              && validUser();
+
+            allow read: if isLoggedIn(); // any logged in user can view any user document. Such as when the 
+                                         // the information about the author of a listing is requested.
+
+            allow update: if isLoggedIn()
+                              && request.auth.uid == userId // user document id must match authenticated user uid.
+                              && isUnflaggedStoredDoc() // Prevent update to a flagged stored user doc.
+                              && validUser();
+            
+            function validUser() {
+                // user document example
+                // userDoc = {
+                //        personalDetails: {
+                //            firstName: 'Jack',
+                //            surname: 'Stober'
+                //            dateOfBirth: #1984/01/18, (a timestamp date!!)
+                //            mobileNo: 123456781,
+                //            email: 'someone@somewhere.co.za',
+                //            address: {
+                //                complexName: 'Tamboti',
+                //                unitNo: '12A',
+                //                streetNo: '25A',
+                //                streetName: 'Zondo Street',
+                //                streetNo: '2638',
+                //                streetName: 'Cougar Str.',
+                //                provincialCode: 'ZA_GP',
+                //                municipalityCode: 'EKU',
+                //                mainPlaceCode: '797005',
+                //                subPlaceCode: '797005003'
+                //            }
+                //        },
+                //        flagged: false
+                // }
+                
+
+                let fields = ['personalDetails', 'flagged'];
+                let subFields = ['displayName', 'firstName', 'surname', 'dateOfBirth', 'address', 'mobileNo', 'email'];
+                return request.resource.data.keys().hasAll(fields)
+                                && request.resource.data.keys().hasOnly(fields)                
+                                && request.resource.data.personalDetails.keys().hasAll(subFields)
+                                && request.resource.data.personalDetails.keys().hasOnly(subFields)
+                                && validDisplayName(request.resource.data.personalDetails.displayName)
+                                && validPersonName(request.resource.data.personalDetails.firstName)
+                                && validPersonName(request.resource.data.personalDetails.surname)
+                                && validDateOfBirth(request.resource.data.personalDetails.dateOfBirth)
+                                && validAddressMap(request.resource.data.personalDetails.address)
+                                && validNumericString(request.resource.data.personalDetails.mobileNo)
+                                && validEmail(request.resource.data.personalDetails.email)
+                                && (request.resource.data.flagged is bool
+                                && request.resource.data.flagged == false); // user doc is unflagged by default. 
+            } // function validUser()
+
+        } // match /users/{userId}
+        
+        match /listings/{listingId} {
+            allow read: if isUnflaggedStoredDoc() // Anyone can read unflagged listings.
+                            || isModerator(); // Only moderators can read flagged listings.
+            allow update: if isLoggedIn()
+                              && ((isUnflaggedStoredDoc() // Update to a flagged listings is prevented.
+                              && isStoredDocOwner() // Must be the listing owner.
+                              && isIncomingDocOwner() // Must be owner of the document update entry.
+                              && validListing())
+                              || updateOfListingFlag()); // The moderator is updating the listing flag.
+            allow create: if isLoggedIn()
+                              && isIncomingDocOwner() // Must be owner of the new document.
+                              && validListing();
+
+            function validListing() {
+                let requiredFields = ['dateCreated', 'title', 'propertyType', 'address', 'mapCoordinates', 'transactionType',
+                                      'priceInfo', 'numBedrooms', 'numBathrooms', 'description', 'parkingCapacity', 
+                                      'totalFloorArea', 'images', 'userId', 'flagged'];
+
+                let optionalFields = ['erfSize', 'garageCapacity', 'rates'];
+                let allFields = requiredFields.concat(optionalFields);
+                
+                // Listing must have all the required fields, plus the optional fields.
+                let condition1 = request.resource.data.keys().hasAll(requiredFields)
+                                  && request.resource.data.keys().hasOnly(allFields);
+
+                let condition2 =  validListingCreationDate()
+                                  && validShortDescr(request.resource.data.title)
+                                  && validPropertyType(request.resource.data.propertyType)
+                                  && validAddressMap(request.resource.data.address)
+                                  && validMapCoordinates(request.resource.data.mapCoordinates)
+                                  && validTransactionType(request.resource.data.transactionType)
+                                  && validProperty(request.resource.data.propertyType, request.resource.data.transactionType)
+                                  && validPriceInfo(request.resource.data.priceInfo)
+                                  && validNumBedrooms(request.resource.data.numBedrooms) 
+                                  && validNumBedrooms(request.resource.data.numBathrooms) // Number of bedrooms validation is quite similar to validation of number of bathrooms.
+                                  && validLongDescr(request.resource.data.description)
+                                  && validNumBedrooms(request.resource.data.parkingCapacity) // Number of bedrooms validation is quite similar to validation of parking capacity.
+                                  && validNaturalNum(request.resource.data.totalFloorArea)
+                                  && validImageList(request.resource.data.images)
+                                  && (request.resource.data.flagged is bool
+                                          && request.resource.data.flagged == false) // All new listings must be unflagged by default
+                                  && ('garageCapacity' in request.resource.data?
+                                          validNumBedrooms(request.resource.data.garageCapacity) : true) // Number of bedrooms validation is quite similar to validation of garage capacity.
+                                  && ('erfSize' in request.resource.data?
+                                          validNaturalNum(request.resource.data.erfSize) : true)
+                                  && ('rates' in request.resource.data?
+                                          validRates(request.resource.data.rates) : true);
+
+                return condition1 && condition2;
+            } // function validListing()
+
+            function listingExists() {
+                return exists(/databases/$(database)/documents/listings/$(listingId));
+            }
+
+            function validListingCreationDate() {
+                // If it's a listing update (listing exists), then the listing date of the incoming listing doc must match
+                // that of the stored listing doc.
+                // If it's a new listing creation, then its dateCreated must be within 120 seconds of the current server timestamp
+                return listingExists()?
+                          (request.resource.data.dateCreated.toMillis() - resource.data.dateCreated.toMillis() == 0) :
+                          math.abs(request.resource.data.dateCreated.toMillis() - request.time.toMillis()) <= (2 * 60 * 1000);
+            }
+
+            function validNumBedrooms(aValue) {
+                return validWholeNum(aValue)
+                        && aValue <= 8;
+            }
+
+            function validPropertyType(aValue) {
+                let propertyTypes = ['House', 'Apartment/Flat', 'Town House', 'Room', 'Vacant Land'];
+                
+                return aValue is string
+                        && aValue in propertyTypes;
+            } // function validPropertyType(aValue)
+
+            function validProperty(propertyType, transactionType) {
+                // Validate that an Apartment/Flat or Room is not for Sale.
+                // NB. The validPropertyType() and validTransactionType must have been called in advance to valid the propertyType
+                // and transactionType of the listing.
+                return propertyType in ['Room']?
+                          transactionType != 'Sale' : true;
+            } // function validProperty(propertyType, transactionType)
+
+            function validTransactionType(aValue) {
+                let transactionTypes = ['Rent', 'Sale'];
+                return aValue is string
+                        && aValue in transactionTypes;
+            }
+
+            function validMapCoordinates(aValue) {
+                let fields = ['latitude', 'longitude'];
+                return aValue.keys().hasAll(fields)
+                        && aValue.keys().hasOnly(fields)
+                        && (aValue.latitude is float || aValue is int)
+                        && (aValue.longitude is float || aValue is int);
+            }
+
+            function validRates(ratesMap)    {
+                let fields = ['propertyTax', 'utilityRates', 'associationFees'];
+                // The rates map field should have any of the fields propertyTax, utilityRates and associationFees only.
+                    return ratesMap.keys().hasOnly(fields)
+                            && ('propertyTax' in ratesMap?
+                                  validRecurringBill(ratesMap.propertyTax) : true)
+                            && ('utilityRates' in ratesMap?
+                                  validRecurringBill(ratesMap.utilityRates) : true)
+                            && ('associationFees' in ratesMap?
+                                  validRecurringBill(ratesMap.associationFees) : true);
+            } 
+
+            function validRecurringBill(rateMap) {
+                let fields = ['amount', 'frequency']; // Frequency refers to how often (months) does the billing happen, in months.
+                                                      // e.g. frequency of 1 means the billing happens every 1 month.
+                                                      // e.g. frequency of 6 means the billing happens every 6 months.
+                                                      // e.g. frequency of 12 means that the belling happens every 12 months.
+                                                      // and so forth.
+
+                // Example of a valid recurring bill:
+                // bill: {
+                //    amount: 250,
+                //    frequency: 1
+                // }
+                return rateMap.keys().hasAll(fields)
+                        && rateMap.keys().hasOnly(fields)
+                        && validPrice(rateMap.amount)
+                        && validNaturalNum(rateMap.frequency)
+                        && (rateMap.frequency > 0)
+                        && (rateMap.frequency <= 12);
+            }
+
+            function validImageList(aList) {
+                // List of image urls must be string type and not exceed a count of 6.
+                return aList is list
+                        && aList.size() >= 1?
+                            validFileMap(aList[0]) : true
+                        && (aList.size() >= 2?
+                            validFileMap(aList[1]) : true)
+                        && (aList.size() >= 3?
+                            validFileMap(aList[2]) : true)
+                        && (aList.size() >= 4?
+                            validFileMap(aList[3]) : true)
+                        && (aList.size() >= 5?
+                            validFileMap(aList[4]) : true)
+                        && (aList.size() == 6?
+                            validFileMap(aList[5]) : true)
+                        && (aList.size >= 2)
+                        && (aList.size <= 6);
+            }
+
+            function validPriceInfo(priceInfoMap) {
+                // Examples of valid priceInfo Maps:
+                // Price info without offer:
+                // priceInfo {
+                //      regularPrice: 2500.00,
+                // }
+                //
+                // Price info with offer:
+                // priceInfo {
+                //    regularPrice: 2500.00,
+                //        offer: {
+                //            discountedPrice: 1000.00,
+                //            appliesFor: 2,
+                //            expiryDate: 2023/12/15
+                //        }
+                //    }
+                let requiredFields = ['regularPrice'];
+                let optionalFields = ['offer'];
+                let allFields = requiredFields.concat(optionalFields);
+
+                let condition1 = priceInfoMap.keys().hasAll(requiredFields)
+                                  && priceInfoMap.keys().hasOnly(allFields)
+                                  && validPrice(priceInfoMap.regularPrice);
+                let condition2 = 'offer' in priceInfoMap?
+                                      validPriceOffer(priceInfoMap.offer) : true;
+
+                return condition1 && condition2;
+            }
+
+            function validPriceOffer(offerMap) {
+                // appliesFor is relevant in rentals, and refers to the number of months for which the discounted price applies.
+                let fields = ['discountedPrice', 'appliesFor', 'expiryDate'];
+                
+                return offerMap.keys().hasAll(fields)
+                        && offerMap.keys().hasOnly(fields)
+                        && validPrice(offerMap.discountedPrice)
+                        && validNaturalNum(offerMap.appliesFor)
+                        && validFutureDate(offerMap.expiryDate);
+            } // function validPriceOffer(offerMap)
+        
+            function updateOfListingFlag() {
+                // The flagging of a listing requires that the user has the moderator role and has performed only the update
+                // of the listing to flag to true.
+                return isModerator()
+                        && request.resource.data.diff(resource.data).affectedKeys().hasAll(['flagged'])
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['flagged'])
+                        && request.resource.data.flagged is bool;
+            } // function updateOfListingFlag() {
+
+        } // match /listings/{listingId}
+        
+        // Allows querying of report sub-collections of listings without any reference to the listing (parent document)
+        match /{document=**}/reports/{reportId} {
+            allow read: if isLoggedIn()
+                           && isModerator();
+        }
+
+        match /listings/{listingId}/reports/{reportId} {
+            // Anyone can, without logging in, report a listing.
+            allow create: if isValidInitialReport();
+            allow read: if isLoggedIn()
+                           && isModerator();
+            allow update: if isLoggedIn()
+                             && isModerator()
+                             && isReportReview();                             
+
+            function isValidInitialReport() {
+                let requiredFields = ['listingId', 'reason', 'reviewed'];
+                let optionalFields = ['description', 'userId']; // userId = uid of the user that reported the listing.
+
+                return (
+                    (request.resource.data.listingId == listingId) // Report must refer to its listing.
+                    && ('userId' in request.resource.data?
+                            request.resource.data.userId == request.auth.uid : true
+                        ) // If there is a userId on the report, it must refer to the user that reported the listing.
+                    && request.resource.data.keys().hasAll(requiredFields)
+                    && request.resource.data.keys().hasOnly(requiredFields.concat(optionalFields))
+                    && request.resource.data.reviewed == false
+                );
+            } // function isValidInitialReport() {
+
+            function isReportReview() {
+                // A reviewed report must have the reviewed field updated from false to true.
+                // A reviewed report must have the reviewDate, result and moderatorId fields set.
+                let requiredFields = ['reviewed', 'reviewDate', 'result', 'moderatorId'];
+                let comparison = request.resource.data.diff(resource.data);
+                return ((comparison.affectedKeys().hasAll(requiredFields)
+                            && comparison.affectedKeys().hasOnly(requiredFields))
+                        || (resource.data.keys().hasAll(requiredFields)
+                             && comparison.affectedKeys().hasOnly(requiredFields))
+                        )
+                        && request.resource.data.reviewed == true
+                        && request.resource.data.reviewDate != null
+                        && request.resource.data.reviewDate is timestamp
+                        && request.resource.data.result in ['flagged', 'not flagged', 'already reviewed']
+                        && request.auth.uid == request.resource.data.moderatorId;
+            } // function isReportReview() {
+
+        }  // match /listings/{listingId}/reports/{reportId} {
+        
+        // Places data to be dumped into Firestore through a script.
+        match /provinces/{document=**} {
+            allow read;
+        } // match /provinces/{document=**} {
+
+        function isLoggedIn() {
+            return request.auth.uid != null;
+        }
+
+        function isModerator() {
+            return request.auth.token.moderator == true;
+        }
+
+        function isUnflaggedStoredDoc() {
+            return resource.data.flagged == false;
+        }
+
+        function isIncomingDocOwner() {
+        // Verify that document belongs to the authenticated user,
+        // by checking if its userId field matches the uid of the authenticated user.
+            return request.auth.uid == request.resource.data.userId;
+        }
+
+        function isStoredDocOwner() {
+        // Verify that stored document belongs to the authenticated user,
+        // by checking if its userId field matches the uid of the authenticated user.
+            return request.auth.uid == resource.data.userId;
+        }
+
+        function validDisplayName(aValue) {
+        // A valid display name is one that is a string makes sense as a name or surname. 
+        // Examples: van der Merwe, Tshabalala, Macron, Anne-Marie.
+            let regEx = "^[0-9a-zA-Z\\- ]{1,50}$";
+            return aValue is string 
+                    && aValue.matches(regEx);
+        }
+
+        function validPersonName(aValue) {
+        // A valid Person name is one that is a string makes sense as a name or surname. 
+        // Examples: van der Merwe, Tshabalala, Macron, Anne-Marie.
+            let nameRegEx = "^[a-zA-Z\\- ]{1,50}$";
+            return aValue is string 
+                    && aValue.matches(nameRegEx);
+        }
+
+        function validNumericString(aValue) {
+            let idRegEx = '^[0-9]{1,20}$';
+            return aValue is string
+                    && aValue.matches(idRegEx);
+        }
+
+        function validNaturalNum(aValue) {
+            return aValue is int
+                    && aValue > 0;
+        }
+
+        
+        function validWholeNum(aValue) {
+            return aValue is int
+                    && aValue >= 0;
+        }
+
+
+        function validPrice(aValue) {
+            return validNaturalNum(aValue)
+                    || (aValue is float && aValue > 0);
+        }
+
+        function validEmail(aValue) {
+            let regEx = '^[0-9a-zA-Z\\.\\-\\_]+@[0-9a-zA-Z\\.\\-]+(\\.[0-9a-zA-Z\\-]{2,4}){1,2}$';
+            return aValue is string
+                    && aValue.matches(regEx);
+        }
+
+        function validAddressMap(addressMap) {
+        // Example of a valid address, one of many examples.
+        //            {
+        //                complexName: 'Tamboti',
+        //                unitNo: '12A',
+        //                streetNo: '25A',
+        //                streetName: 'Zondo Street',
+        //                provincialCode: 'ZA-GP',
+        //                municipalityCode: 'GP134',
+        //                mainPlacecode: '2340001',
+        //                subPlaceCode: '2340001001'
+        //            }
+            
+            let requiredFields = ['streetNo', 'provincialCode', 'municipalityCode', 'mainPlaceCode', 'subPlaceCode'];
+            let optionalFields = ['complexName', 'unitNo', 'streetName'];
+            let allFields = requiredFields.concat(optionalFields);
+
+            // Address must have all the required fields plus any of the optional fields.
+            return addressMap.keys().hasAll(requiredFields)
+                    && addressMap.keys().hasOnly(allFields)
+                    && ('complexName' in addressMap? validPersonName(addressMap.complexName): true)
+                    && ('unitNo' in addressMap? validShortDescr(addressMap.unitNo): true)
+                    && validShortDescr(addressMap.streetNo)
+                    && ('streetName' in addressMap? validShortDescr(addressMap.streetName): true)
+                    && exists(/databases/$(database)/documents/provinces/$(addressMap.provincialCode)/municipalities/$(addressMap.municipalityCode)/mainPlaces/$(addressMap.mainPlaceCode)/subPlaces/$(addressMap.subPlaceCode));
+
+        } // function validAddressMap(addressMap)
+
+        function validFileMap(fileMap) {
+            let fields = ['fileName', 'url'];
+            return fileMap.keys().hasAll(fields)
+                    && fileMap.keys().hasOnly(fields)
+                    && fileMap.fileName is string
+                    && fileMap.url is string;
+        } // function validFileMap(fileMap) {
+
+        function validShortDescr(aValue) {
+            // Valid short description.
+            let regEx = '^[0-9a-zA-Z\\.\\,/\\- ]{1,50}$';
+            return aValue is string
+                    && aValue.matches(regEx);
+        }
+
+        function validLongDescr(aValue) {
+            // Valid Long Description
+            let regEx = '^[0-9a-zA-Z\\.\\,/\\- ]{10,250}$';
+            return aValue is string
+                    && aValue.matches(regEx);
+        } // function validLongDescr(aValue)
+
+        function validDateOfBirth(aValue) {
+            let daysToSeonds = 24 * 60 * 60;
+            let yearsToSeconds = (365 * daysToSeonds) + (25 * daysToSeonds / 100);
+            return aValue is timestamp
+                    && (request.time - aValue >= duration.value(18 * yearsToSeconds, 's'))
+                    && (request.time - aValue <= duration.value(100 * yearsToSeconds, 's'));
+        }
+
+        function validFutureDate(aDateTimeStamp) {
+            // A date and time stamp is a valid future date and time if it is equal or greater than the current server timestamp.
+            return aDateTimeStamp is timestamp
+                    && aDateTimeStamp >= request.time;
+        }
+    } // match /databases/{database}/documents
+}
