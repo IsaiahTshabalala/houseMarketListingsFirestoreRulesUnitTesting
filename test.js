@@ -1,11 +1,12 @@
 // File: ./test.js
 // Description:
-// To test Firestore rules for the Firestore database of this project:
+// To test Firestore rules in the local emulator for the Firestore database of this project:
 // https://github.com/IsaiahTshabalala/houseMarketListings
-// In the terminal run mocha test.
+// In the terminal run: npm test
 // -----------------------------------------------------------------------------
 // Date        Dev    Version   Description
 // 2023/09/27  ITA    1.00      Genesis.
+// 2024/07/11  ITA    1.01      Install and use the dotenv object to access the environment variables.
 // -----------------------------------------------------------------------------
 import {
   assertFails,
@@ -23,10 +24,10 @@ import {
   getDoc,
   Timestamp
 } from 'firebase/firestore';
+import dotenv from 'dotenv';
 
-const PROJECT_ID = process.env.PROJECT_ID;  // NB. This will cause an error. Paste your project-id string here.
-                                           // This project_id should placed on code uploaded on repositories.
-
+dotenv.config();
+const PROJECT_ID = process.env.FIREBASE_PROJECT_ID;
 const rootPath = '/databases/{database}';
 let testEnv,
     isaiahId,
@@ -83,13 +84,12 @@ describe('Security Rules Test...', async function(){
           "address": {
               "streetNo": "2638",
               "provincialCode": "ZA_GP", 
-              "municipalityCode": "G1u_GT421",  // Please use the codes as seen in the provinces, municipalities, main places and sub-places collections and sub-collections.
-              "mainPlaceCode": "qVX_760002",
+              "municipalityCode": "G1u_GT421",  // Please use the codes as seen in the provinces, municipalities, main places and sub-places collections and sub-collections,
+              "mainPlaceCode": "qVX_760002",    // as seen on your Firestore.
               "subPlaceCode": "qp7_760002002",
               "streetName": "Cougar Str."
           }
-      },
-      "flagged": false
+      }
   };
     await assertSucceeds(setDoc(docRefIsaiah, dataIsaiah));
   });
@@ -114,9 +114,9 @@ describe('Security Rules Test...', async function(){
     
   });
 
-  it('Test Case: An Authenticated user can delete their document', async function(){
+  it('Test Case: An Authenticated user cannot delete their document', async function(){
     const docRefIsaiah = doc(isaiahContext.firestore(), '/users', isaiahId);
-    await assertSucceeds(deleteDoc(docRefIsaiah));
+    await assertFails(deleteDoc(docRefIsaiah));
   });
 
   it('Test case: An authenticated user can read another user\'s document', async function(){
@@ -142,9 +142,9 @@ describe('Security Rules Test...', async function(){
                         address: {
                           streetNo: '671',
                           provincialCode: 'ZA_GP',
-                          municipalityCode: 'ZN4_GT421',
-                          mainPlaceCode: 'n8h_760002',
-                          subPlaceCode: 'CQa_760002001'
+                          municipalityCode: 'G1u_GT421',
+                          mainPlaceCode: '0P6_760004',
+                          subPlaceCode: '0Sr_760004006'
                         }
                       };
     await assertFails(setDoc(docRefUnAuth, dataUnAuth));
@@ -162,9 +162,9 @@ describe('Security Rules Test...', async function(){
                         streetName: 'Mgababa Str.',
                         streetNo: '671',
                         provincialCode: 'ZA_GP',
-                        municipalityCode: 'ZN4_GT421',
-                        mainPlaceCode: 'n8h_760002',
-                        subPlaceCode: 'CQa_760002001'
+                        municipalityCode: 'G1u_GT421',
+                        mainPlaceCode: '0P6_760004',
+                        subPlaceCode: '0Sr_760004006'
                       }
                     };
     await assertFails(setDoc(docRefSbu, dataSbu));
@@ -185,9 +185,9 @@ describe('Security Rules Test...', async function(){
         streetNo: '25A',
         streetName: 'Tamboti Drive',
         provincialCode: 'ZA_GP',
-        municipalityCode: 'ZN4_GT421',
-        mainPlaceCode: 'n8h_760002',
-        subPlaceCode: 'CQa_760002001'
+        municipalityCode: 'NGl_JHB',
+        mainPlaceCode: 'dYc_798034',
+        subPlaceCode: 'sJD_798034003'
       },
       priceInfo: {
         regularPrice: 2000.00,
@@ -246,9 +246,9 @@ describe('Security Rules Test...', async function(){
         streetNo: '25A',
         streetName: 'Tamboti Gar',
         provincialCode: 'ZA_GP',
-        municipalityCode: 'zVv_JHB',
-        mainPlaceCode: '7bI_798006',
-        subPlaceCode: 'sw2_798006004'
+        municipalityCode: 'NGl_JHB',
+        mainPlaceCode: 'dYc_798034',
+        subPlaceCode: 'sJD_798034003'
       },
       priceInfo: {
         regularPrice: 2000.00,
@@ -330,9 +330,9 @@ describe('Security Rules Test...', async function(){
       { 
         streetNo: '2638',
         provincialCode: 'ZA_GP',
-        municipalityCode: 'ZN4_GT421',
-        mainPlaceCode: 'n8h_760002',
-        subPlaceCode: 'CQa_760002001'
+        municipalityCode: 'NGl_JHB',
+        mainPlaceCode: 'dYc_798034',
+        subPlaceCode: 'AKV_798034005'
       },
       dateCreated: Timestamp.fromDate(new Date()),
       description: "New house.",
