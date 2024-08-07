@@ -5,6 +5,7 @@
 // -----------------------------------------------------------------------------
 // Date        Dev    Version   Description
 // 2023/10/02  ITA    1.00      Genesis.
+// 2024/08/07  ITA    1.02      Allow the new or updated listings to have zero or no map coordinates.
 // -----------------------------------------------------------------------------
 
 rules_version = '2';
@@ -86,11 +87,11 @@ service cloud.firestore {
                               && validListing();
 
             function validListing() {
-                let requiredFields = ['dateCreated', 'title', 'propertyType', 'address', 'mapCoordinates', 'transactionType',
+                let requiredFields = ['dateCreated', 'title', 'propertyType', 'address', 'transactionType',
                                       'priceInfo', 'numBedrooms', 'numBathrooms', 'description', 'parkingCapacity', 
                                       'totalFloorArea', 'images', 'userId', 'flagged'];
 
-                let optionalFields = ['erfSize', 'garageCapacity', 'rates'];
+                let optionalFields = ['erfSize', 'garageCapacity', 'rates', 'mapCoordinates'];
                 let allFields = requiredFields.concat(optionalFields);
                 
                 // Listing must have all the required fields, plus the optional fields.
@@ -101,7 +102,8 @@ service cloud.firestore {
                                   && validShortDescr(request.resource.data.title)
                                   && validPropertyType(request.resource.data.propertyType)
                                   && validAddressMap(request.resource.data.address)
-                                  && validMapCoordinates(request.resource.data.mapCoordinates)
+                                  && ('mapCoordinates'in request.resource.data?
+                                        validMapCoordinates(request.resource.data.mapCoordinates) : true)
                                   && validTransactionType(request.resource.data.transactionType)
                                   && validProperty(request.resource.data.propertyType, request.resource.data.transactionType)
                                   && validPriceInfo(request.resource.data.priceInfo)
@@ -166,8 +168,8 @@ service cloud.firestore {
                 let fields = ['latitude', 'longitude'];
                 return aValue.keys().hasAll(fields)
                         && aValue.keys().hasOnly(fields)
-                        && (aValue.latitude is float || aValue is int)
-                        && (aValue.longitude is float || aValue is int);
+                        && (aValue.latitude == 0 || aValue.latitude is float || aValue is int)
+                        && (aValue.longitude == 0 || aValue.longitude is float || aValue is int);
             }
 
             function validRates(ratesMap)    {
