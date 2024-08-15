@@ -70,6 +70,12 @@
             "queryScope": "COLLECTION",
             "fields": [
                 { "fieldPath": "flagged", "order": "ASCENDING" },
+                { "fieldPath": "address.provincialCode", "order": "ASCENDING"},
+                { "fieldPath": "address.municipalityCode", "order": "ASCENDING"},
+                { "fieldPath": "address.mainPlaceCode", "order": "ASCENDING"},
+                { "fieldPath": "transactionType", "order": "ASCENDING"},
+                { "fieldPath": "propertyType", "order": "ASCENDING"},
+                { "fieldPath": "numBedrooms", "order": "ASCENDING"},
                 { "fieldPath": "priceInfo.offer.expiryDate", "order": "ASCENDING" }
             ]
         },
