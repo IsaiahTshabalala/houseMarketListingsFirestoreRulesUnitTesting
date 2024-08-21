@@ -6,6 +6,7 @@
 // Date        Dev    Version   Description
 // 2023/10/02  ITA    1.00      Genesis.
 // 2024/08/07  ITA    1.02      Allow the new or updated listings to have zero or no map coordinates.
+// 2024/08/21  ITA    1.03      Allow only the user to view their user document.
 // -----------------------------------------------------------------------------
 
 rules_version = '2';
@@ -20,8 +21,8 @@ service cloud.firestore {
                               && request.auth.uid == userId // user document id matches authenticated user's unique id (uid)
                               && validUser();
 
-            allow read: if isLoggedIn(); // any logged in user can view any user document. Such as when the 
-                                         // the information about the author of a listing is requested.
+            allow read: if isLoggedIn() // Only the document owner can read this document.
+                              && request.auth.uid === {userId};
 
             allow update: if isLoggedIn()
                               && request.auth.uid == userId // user document id must match authenticated user uid.
