@@ -7,6 +7,7 @@
 // 2023/10/02  ITA    1.00      Genesis.
 // 2024/08/07  ITA    1.02      Allow the new or updated listings to have zero or no map coordinates.
 // 2024/08/21  ITA    1.03      Allow only the user to view their user document.
+// 2026/02/08  ITA    1.04      Ensure that the Firestore rules at the firestore.rules files match those at the online database.
 // -----------------------------------------------------------------------------
 
 rules_version = '2';
@@ -22,7 +23,7 @@ service cloud.firestore {
                               && validUser();
 
             allow read: if isLoggedIn() // Only the document owner can read this document.
-                              && request.auth.uid === {userId};
+                              && request.auth.uid == userId;
 
             allow update: if isLoggedIn()
                               && request.auth.uid == userId // user document id must match authenticated user uid.
@@ -220,8 +221,8 @@ service cloud.firestore {
                             validFileMap(aList[4]) : true)
                         && (aList.size() == 6?
                             validFileMap(aList[5]) : true)
-                        && (aList.size >= 2)
-                        && (aList.size <= 6);
+                        && (aList.size() >= 2)
+                        && (aList.size() <= 6);
             }
 
             function validPriceInfo(priceInfoMap) {
