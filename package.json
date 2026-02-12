@@ -1,6 +1,6 @@
 {
   "name": "tests",
-  "version": "1.0.0",
+  "version": "1.0.8",
   "description": "Unit tests",
   "main": "test.js",
   "type": "module",

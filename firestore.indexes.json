@@ -5,30 +5,6 @@
             "queryScope": "COLLECTION",
             "fields": [
                 { "fieldPath": "flagged", "order": "ASCENDING" },
-                { "fieldPath": "address.provincialCode", "order": "ASCENDING" }
-            ]
-        },
-        {
-            "collectionGroup": "listings",
-            "queryScope": "COLLECTION",
-            "fields": [
-                { "fieldPath": "flagged", "order": "ASCENDING" },
-                { "fieldPath": "address.municipalityCode", "order": "ASCENDING" }
-            ]
-        },
-        {
-            "collectionGroup": "listings",
-            "queryScope": "COLLECTION",
-            "fields": [
-                { "fieldPath": "flagged", "order": "ASCENDING" },
-                { "fieldPath": "address.mainPlaceCode", "order": "ASCENDING" }
-            ]
-        },
-        {
-            "collectionGroup": "listings",
-            "queryScope": "COLLECTION",
-            "fields": [
-                { "fieldPath": "flagged", "order": "ASCENDING" },
                 { "fieldPath": "userId", "order": "ASCENDING"},
                 { "fieldPath": "dateCreated", "order": "DESCENDING" }
             ]
@@ -38,7 +14,11 @@
             "queryScope": "COLLECTION",
             "fields": [
                 { "fieldPath": "flagged", "order": "ASCENDING" },
-                { "fieldPath": "propertyType", "order": "ASCENDING" }
+                { "fieldPath": "address.provincialCode", "order": "ASCENDING" },
+                { "fieldPath": "transactionType", "order": "ASCENDING" },
+                { "fieldPath": "propertyType", "order": "ASCENDING" },
+                { "fieldPath": "numBedrooms", "order": "ASCENDING" },
+                { "fieldPath": "priceInfo.regularPrice", "order": "ASCENDING" }
             ]
         },
         {
@@ -46,7 +26,12 @@
             "queryScope": "COLLECTION",
             "fields": [
                 { "fieldPath": "flagged", "order": "ASCENDING" },
-                { "fieldPath": "transactionType", "order": "ASCENDING" }
+                { "fieldPath": "address.provincialCode", "order": "ASCENDING" },
+                { "fieldPath": "address.municipalityCode", "order": "ASCENDING" },
+                { "fieldPath": "transactionType", "order": "ASCENDING" },
+                { "fieldPath": "propertyType", "order": "ASCENDING" },
+                { "fieldPath": "numBedrooms", "order": "ASCENDING" },
+                { "fieldPath": "priceInfo.regularPrice", "order": "ASCENDING" }
             ]
         },
         {
@@ -54,7 +39,40 @@
             "queryScope": "COLLECTION",
             "fields": [
                 { "fieldPath": "flagged", "order": "ASCENDING" },
-                { "fieldPath": "numBedrooms", "order": "ASCENDING" }
+                { "fieldPath": "address.provincialCode", "order": "ASCENDING" },
+                { "fieldPath": "address.municipalityCode", "order": "ASCENDING" },
+                { "fieldPath": "address.mainPlaceCode", "order": "ASCENDING"},
+                { "fieldPath": "transactionType", "order": "ASCENDING" },
+                { "fieldPath": "propertyType", "order": "ASCENDING" },
+                { "fieldPath": "numBedrooms", "order": "ASCENDING" },
+                { "fieldPath": "priceInfo.regularPrice", "order": "ASCENDING" }
+            ]
+        },
+        {
+            "collectionGroup": "listings",
+            "queryScope": "COLLECTION",
+            "fields": [
+                { "fieldPath": "flagged", "order": "ASCENDING" },
+                { "fieldPath": "address.provincialCode", "order": "ASCENDING" },
+                { "fieldPath": "transactionType", "order": "ASCENDING" },
+                { "fieldPath": "propertyType", "order": "ASCENDING" },
+                { "fieldPath": "numBedrooms", "order": "ASCENDING" },
+                { "fieldPath": "priceInfo.offer.expiryDate", "order": "DESCENDING" },
+                { "fieldPath": "priceInfo.offer.discountedPrice", "order": "ASCENDING" }
+            ]
+        },
+        {
+            "collectionGroup": "listings",
+            "queryScope": "COLLECTION",
+            "fields": [
+                { "fieldPath": "flagged", "order": "ASCENDING" },
+                { "fieldPath": "address.provincialCode", "order": "ASCENDING" },
+                { "fieldPath": "address.municipalityCode", "order": "ASCENDING" },
+                { "fieldPath": "transactionType", "order": "ASCENDING" },
+                { "fieldPath": "propertyType", "order": "ASCENDING" },
+                { "fieldPath": "numBedrooms", "order": "ASCENDING" },
+                { "fieldPath": "priceInfo.offer.expiryDate", "order": "DESCENDING" },
+                { "fieldPath": "priceInfo.offer.discountedPrice", "order": "ASCENDING" }
             ]
         },
         {
@@ -68,7 +86,8 @@
                 { "fieldPath": "transactionType", "order": "ASCENDING" },
                 { "fieldPath": "propertyType", "order": "ASCENDING" },
                 { "fieldPath": "numBedrooms", "order": "ASCENDING" },
-                { "fieldPath": "priceInfo.offer.expiryDate", "order": "ASCENDING" }
+                { "fieldPath": "priceInfo.offer.expiryDate", "order": "DESCENDING" },
+                { "fieldPath": "priceInfo.offer.discountedPrice", "order": "ASCENDING" }
             ]
         },
         {
@@ -319,22 +338,22 @@
         {
             "collectionGroup": "reports",
             "fieldPath": "reportingReason",
-            "indexes": []            
+            "indexes": [] 
         },
         {
             "collectionGroup": "reports",
             "fieldPath": "reviewedDate",
-            "indexes": []            
+            "indexes": []
         },
         {
             "collectionGroup": "reports",
             "fieldPath": "moderatorId",
-            "indexes": []            
+            "indexes": []       
         },
         {
             "collectionGroup": "reports",
             "fieldPath": "result",
-            "indexes": []            
+            "indexes": [] 
         }
     ]
   }
