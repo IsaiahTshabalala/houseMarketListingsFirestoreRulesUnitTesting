@@ -2,7 +2,7 @@ This is a Firebase rules unit testing project for https://github.com/IsaiahTshab
 
 
 NB. Outstanding file that must be created: .firebaserc
-Inside that file, put this json.
+Inside that file, put the following json:
 {
     "projects": {
       "default": "Your Firebase Project ID here",

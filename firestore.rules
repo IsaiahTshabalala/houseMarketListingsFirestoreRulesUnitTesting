@@ -3,11 +3,13 @@
 // Firestore rules. For the house-market-listings application found here:
 // https://github.com/IsaiahTshabalala/houseMarketListings
 // -----------------------------------------------------------------------------
-// Date        Dev    Version   Description
-// 2023/10/02  ITA    1.00      Genesis.
-// 2024/08/07  ITA    1.02      Allow the new or updated listings to have zero or no map coordinates.
-// 2024/08/21  ITA    1.03      Allow only the user to view their user document.
-// 2026/02/08  ITA    1.04      Ensure that the Firestore rules at the firestore.rules files match those at the online database.
+// Start Date  End Date    Dev    Version  Description
+// 2023/10/02              ITA    1.00     Genesis.
+// 2024/08/07              ITA    1.02     Allow the new or updated listings to have zero or no map coordinates.
+// 2024/08/21              ITA    1.03     Allow only the user to view their user document.
+// 2026/02/08              ITA    1.04     Ensure that the Firestore rules at the firestore.rules files match those at the online database.
+// 2026/06/11  2026/06/11  ITA    1.05     Updated the isModerator() function to include the logged in check. The moderator role check has
+//                                         also been updated in keeping up with the latest Firebase implementation.
 // -----------------------------------------------------------------------------
 
 rules_version = '2';
@@ -76,8 +78,7 @@ service cloud.firestore {
         } // match /users/{userId}
         
         match /listings/{listingId} {
-            allow read: if isUnflaggedStoredDoc() // Anyone can read unflagged listings.
-                            || isModerator(); // Only moderators can read flagged listings.
+            allow read: if isUnflaggedStoredDoc(); // Anyone can read unflagged listings.
             allow update: if isLoggedIn()
                               && ((isUnflaggedStoredDoc() // Update to a flagged listings is prevented.
                               && isStoredDocOwner() // Must be the listing owner.
@@ -278,17 +279,14 @@ service cloud.firestore {
         
         // Allows querying of report sub-collections of listings without any reference to the listing (parent document)
         match /{document=**}/reports/{reportId} {
-            allow read: if isLoggedIn()
-                           && isModerator();
+            allow read: if isModerator();
         }
 
         match /listings/{listingId}/reports/{reportId} {
             // Anyone can, without logging in, report a listing.
             allow create: if isValidInitialReport();
-            allow read: if isLoggedIn()
-                           && isModerator();
-            allow update: if isLoggedIn()
-                             && isModerator()
+            allow read: if isModerator();
+            allow update: if isModerator()
                              && isReportReview();                             
 
             function isValidInitialReport() {
@@ -335,7 +333,7 @@ service cloud.firestore {
         }
 
         function isModerator() {
-            return request.auth.token.moderator == true;
+            return isLoggedIn() && (request.auth.token.role == 'moderator');
         }
 
         function isUnflaggedStoredDoc() {

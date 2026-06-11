@@ -1,7 +1,7 @@
 {
   "name": "tests",
-  "version": "1.0.8",
-  "description": "Unit tests",
+  "version": "1.0.9",
+  "description": "Rules and indexes construction",
   "main": "test.js",
   "type": "module",
   "scripts": {
